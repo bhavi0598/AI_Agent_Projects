@@ -1,8 +1,17 @@
-# 🔄 Selenium to Playwright Auto-Converter (Local Offline Agent)
+# 🔄 Selenium to Playwright Auto-Converter (Multi-LLM Agent)
 
-Welcome to the **Selenium to Playwright Auto-Converter**! This project is an incredibly powerful, 100% locally hosted AI agent designed to help QA engineers automatically translate their old Selenium code (Java or Python) into modern, idiomatic Playwright TypeScript code using local Large Language Models (LLMs).
+Welcome to the **Selenium to Playwright Auto-Converter**! This project is a powerful AI-driven automation agent designed to help QA engineers translate legacy Selenium code (Java or Python) into modern, idiomatic Playwright TypeScript code seamlessly.
 
-It was designed with a **privacy-first** approach: absolutely zero code leaves your computer. No OpenAI, no Anthropic, no cloud APIs. Everything runs on your own hardware via **Ollama**.
+This tool now supports a **Dual-LLM Architecture**! You can choose to run conversions 100% locally using **Ollama** (for strict data privacy) OR utilize lighting-fast cloud models using **Groq** APIs!
+
+---
+
+## 🌟 Key Features
+
+1. **Dual-Page Streamlit UI:** Navigate between configuring your LLM API tokens/URLs and the actual Conversion Dashboard.
+2. **Strict 17-Rule Engine:** The AI is tightly constrained by a 17-rule framework that explicitly forbids hallucinating syntax and forces the output into strict, explicitly-typed Playwright TypeScript.
+3. **ChatGPT-like Streaming:** Code is streamed back to your screen character-by-character the moment the LLM begins "thinking", avoiding massive timeout hangs.
+4. **Offline Capability:** If your codebase is proprietary, disable the Groq connection, spin up Ollama with `llama3.2:1b` or `qwen3:4b`, and perform the conversion entirely offline without your data ever leaving your machine.
 
 ---
 
@@ -10,104 +19,74 @@ It was designed with a **privacy-first** approach: absolutely zero code leaves y
 
 ```mermaid
 graph TD
-    User([👨‍💻 User]) -->|Pastes Selenium Code| UI(🖥️ Streamlit Frontend - app.py)
+    User["User"] -->|Configures Connection| Config["Config Page (app.py)"]
+    Config -->|Selects Provider| Router{"Provider Router"}
     
-    subgraph Python Backend 🐍
-    UI -->|Triggers Conversion| Backend(⚙️ LLM Engine - tools/llm_engine.py)
-    UI -->|Validates Connection| Handshake(🤝 Handshake - tools/handshake.py)
-    end
+    User -->|Pastes Selenium Code| Editor["Editor Page (app.py)"]
+    Editor -->|Triggers Conversion| Engine["LLM Engine (tools/llm_engine.py)"]
     
-    subgraph Local Environment 💻
-    Backend -->|Streaming HTTP Request| Ollama(🦙 Ollama Server)
-    Handshake -->|Ping & Check Models| Ollama
-    Ollama -->|Loads Model into RAM| Model[(🧠 qwen3:4b / llama3.2:1b)]
-    end
+    Engine --> Router
     
-    Model -->|Generates Playwright TS Chunk by Chunk| Backend
-    Backend -->|Streams Text back to UI| UI
-    UI -->|Shows ChatGPT-like typing effect| User
+    Router -->|If Local| Ollama["Ollama Service (Localhost)"]
+    Router -->|If Cloud| Groq["Groq API (Cloud)"]
+    
+    Ollama -->|Streams TS Code| Engine
+    Groq -->|Streams TS Code| Engine
+    
+    Engine -->|Displays Live Text| Editor
 ```
+*(Note: If the diagram above does not appear on GitHub perfectly, ensure that your browser's dark-mode extension isn't inverting Mermaid elements, as GitHub natively supports this simple node structure.)*
 
 ---
 
-## 📂 Folder Structure
-
-Here is how the project is organized. It strictly follows a customized architecture format called **B.L.A.S.T.** (Blueprint, Link, Architect, Stylize, Trigger) ensuring high reliability.
+## 📂 Folder Structure & Component Breakdown
 
 ```text
 Selenium_to_playwright_convertor/
 │
 ├── 🏃‍♂️ run_app.bat               # Easy 1-click startup script for Windows.
-├── 🖥️ app.py                    # The Streamlit Frontend UI Application.
+├── 🖥️ app.py                    # The Streamlit Frontend UI Application with navigation.
 ├── 📄 requirements.txt          # Python dependencies (Streamlit, requests, dotenv).
-├── 🔒 .env                      # Simple configuration variables (like the Ollama URL).
+├── 🔒 .env                      # Configuration variables (API keys and Base URLs).
 │
-├── tools/                       # Operational Python Scripts (The "Engine").
-│   ├── llm_engine.py          # The script that talks to the LLM and manages the prompts.
-│   └── handshake.py           # The script that checks if Ollama is awake and ready.
+├── tools/
+│   ├── llm_engine.py          # Dual-pipeline script routing prompts to Ollama/Groq streams.
+│   └── handshake.py           # Pre-flight checker ensuring Ollama logic is reachable.
 │
-├── architecture/                # Documentation on our internal rules.
-│   ├── translation_logic.md   # System Prompt strategies & syntax maps.
-│   └── ui_components.md       # Notes on how the UI should behave.
+├── architecture/
+│   ├── translation_logic.md   # Documentation on the 17-Rule QA Mapping System.
+│   └── ui_components.md       # Notes on UI structural state management.
 │
-└── 📝 Markdown Documents        # Project Memory (task_plan.md, progress.md, gemini.md)
+└── 📝 task_plan.md/gemini.md    # Project Constitution tracking memory and protocol goals.
 ```
 
----
-
-## ⚙️ How the Code Works (File by File)
-
-If you are a beginner, here is exactly what is happening under the hood when you run this project!
-
-### 1. `run_app.bat` (The Starter)
-This is a Windows batch file designed to make your life easy. 
-When you double-click it, it quickly checks:
-1. Do you have Python installed?
-2. Are the libraries in `requirements.txt` downloaded? (It installs them quietly if not).
-3. Is your Ollama application actually running in the background?
-Finally, it runs `streamlit run app.py` to pop the user interface open in your web browser.
-
-### 2. `app.py` (The Face of the App)
-This file uses the **Streamlit** library to draw the UI you see on screen using simple Python commands. 
-- It creates a sidebar for you to select which AI Model you want to use.
-- It splits the page into two columns (Left side for your Input Code, Right side for the AI's Output Code).
-- When you click "Convert", this file grabs your code, hands it to `llm_engine.py`, and waits for the AI to start "typing" back its answer, streaming it live onto the screen.
-
-### 3. `tools/handshake.py` (The Checker)
-Before the UI even loads, this script quietly knocks on Ollama's door (`localhost:11434`) and asks, *"Are you awake? What models do you have ready?"* 
-If Ollama is sleeping or you didn't download any models, this tells `app.py` to show you a big red error so you know exactly what is wrong.
-
-### 4. `tools/llm_engine.py` (The Brain)
-This is where the magic happens. 
-- It houses a massive, highly specific **17-Rule System Prompt**. This prompt explicitly tells the LLM the exact rules of QA Automation (e.g., *Always convert `driver.get` to `await page.goto`*, *Remove all Thread.sleeps*, etc.).
-- It takes your pasted Selenium code, wraps it together with the 17 Rules, and sends an HTTP `POST` request to your local Ollama server.
-- **Streaming Mode:** It tells Ollama to `stream=True`, meaning instead of waiting 2 minutes for the AI to finish thinking and sending one massive block of text, the AI sends the text word-by-word the instant it thinks of it. This creates the "ChatGPT" typing effect you see on screen!
-
-### 5. `.env` (The Secrets/Variables file)
-This handles configurations. Right now, it tells our Python code where to find Ollama locally. 
-*(E.g., `OLLAMA_BASE_URL=http://localhost:11434`). If you ever move your AI to a giant server down the hall, you just change that URL here, and the app instantly redirects there!*
+### How the Engine Works (`tools/llm_engine.py`):
+This acts as the "brain". Instead of letting an AI guess how to write Playwright code, the engine forcefully injects your code underneath 17 heavily structured laws (e.g., instructing it to exclusively map `driver.get` to `await page.goto()`, and to explicitly declare types like `const locator: Locator = ...`). It automatically identifies whether to format its HTTPS payload for an OpenAI-compatible spec (Groq) or a native endpoint (Ollama).
 
 ---
 
 ## 🚀 Getting Started
 
-To run this application, you need to ensure you have two things on your computer:
-1. **Python 3.10+** (To run the Streamlit UI logic).
-2. **Ollama** installed (The engine to run the AI), with at least one model pulled locally.
+To run this application, ensure you have **Python 3.10+** installed.
 
-### Step 1: Download AI Models
-Ensure your Ollama app is running, open a terminal, and download a model to your hard drive:
-```bash
-ollama run qwen3:4b
-# or
-ollama run llama3.2:1b
-```
-
-### Step 2: Open the Application
-Navigate to this project folder, and simply double click:
+### Option 1: Quick Windows Start
+Navigate to the folder and simply double click:
 ```text
 run_app.bat
 ```
-*(Or run `.\run_app.bat` inside your Terminal/Command Prompt).*
+*(This will auto-install dependencies from `requirements.txt` and launch the browser).*
 
-Your browser will pop open automatically. Just select your model, paste your Selenium code on the left, and watch the AI seamlessly convert it to Playwright TypeScript on the right!
+### Option 2: Manual Terminal Start
+```bash
+pip install -r requirements.txt
+streamlit run app.py
+```
+
+### 🎮 How to use the Web App:
+1. When your browser opens, click the **"⚙️ Configuration Settings"** button on the left sidebar.
+2. Select whether you want to use **Ollama (Local)** or **Groq (Cloud)**.
+   - For **Ollama**: Ensure your local Ollama app is running, provide your Base URL (usually `http://localhost:11434`), and hit Connect. Select your desired local model.
+   - For **Groq**: Paste your API token safely into the password box and hit Connect. Select any super-model like `llama3-70b-8192` or `openai/gpt-oss-120b`.
+3. Switch over to the **"🚀 Selenium to Playwright Auto-Converter"** page.
+4. Select your Source Language, paste your legacy code, and click Convert! 
+5. You can use the Download `.md` button to save the entire conversational explanation and generated TypeScript file to your hard drive.

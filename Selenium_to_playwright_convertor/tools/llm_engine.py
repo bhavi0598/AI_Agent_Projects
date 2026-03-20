@@ -4,9 +4,7 @@ import requests
 from dotenv import load_dotenv
 
 load_dotenv()
-OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
-
-# Removed extract_typescript function as we want full ChatGPT-like streaming responses
+OLLAMA_BASE_URL_ENV = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
 
 def build_system_prompt(source_language: str) -> str:
     return f"""You are a senior QA Automation Engineer with 15 years of experience and a deterministic Selenium-to-Playwright TypeScript conversion engine.
@@ -109,30 +107,69 @@ GOOD: const btn: Locator = page.getByRole('button');
 Return the final output with a polite, brief ChatGPT-like explanation, followed by the explicit Playwright TypeScript code block wrapped in ```typescript ```.
 """
 
-def generate_playwright_conversion_stream(source_lang: str, source_code: str, model: str):
-    url = f"{OLLAMA_BASE_URL}/api/generate"
-    
+def generate_playwright_conversion_stream(source_lang: str, source_code: str, model: str, provider: str = "Ollama (Local)", base_url: str = None, api_key: str = None):
     system_prompt = build_system_prompt(source_lang)
     user_prompt = f"Convert the following {source_lang} code into Playwright TypeScript:\n\n{source_code}"
     
-    payload = {
-        "model": model,
-        "system": system_prompt,
-        "prompt": user_prompt,
-        "stream": True
-    }
-    
-    try:
-        # We increase the timeout dramatically for local models hitting memory limits
-        with requests.post(url, json=payload, timeout=(60, 600), stream=True) as response:
-            response.raise_for_status()
-            
-            for line in response.iter_lines():
-                if line:
-                    data = json.loads(line.decode('utf-8'))
-                    yield data.get("response", "")
+    if "Groq" in provider:
+        url = "https://api.groq.com/openai/v1/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "model": model,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            "stream": True,
+            "max_tokens": 4096
+        }
+        try:
+            with requests.post(url, headers=headers, json=payload, stream=True, timeout=60) as response:
+                if not response.ok:
+                    try:
+                        error_details = response.json()
+                        yield f"\\n\\n❌ **Groq API Error Details:** {json.dumps(error_details)}"
+                    except:
+                        yield f"\\n\\n❌ **Groq Connection error:** {response.status_code} {response.reason}\\n{response.text}"
+                    response.raise_for_status()
                     
-    except requests.exceptions.RequestException as e:
-        yield f"\n\n❌ **Connection error:** {str(e)}"
-    except Exception as e:
-        yield f"\n\n❌ **Conversion error:** {str(e)}"
+                for line in response.iter_lines():
+                    if line:
+                        line_decoded = line.decode('utf-8')
+                        if line_decoded.startswith('data: '):
+                            data_str = line_decoded[6:]
+                            if data_str.strip() == '[DONE]':
+                                break
+                            try:
+                                data_json = json.loads(data_str)
+                                chunk = data_json.get("choices", [{}])[0].get("delta", {}).get("content", "")
+                                if chunk:
+                                    yield chunk
+                            except json.JSONDecodeError:
+                                pass
+        except Exception as e:
+            if "response" not in locals() or response.ok:
+                yield f"\\n\\n❌ **Groq Streaming execution error:** {str(e)}"
+
+    else: # Ollama default
+        url = f"{base_url or OLLAMA_BASE_URL_ENV}/api/generate"
+        payload = {
+            "model": model,
+            "system": system_prompt,
+            "prompt": user_prompt,
+            "stream": True
+        }
+        try:
+            with requests.post(url, json=payload, timeout=(60, 600), stream=True) as response:
+                response.raise_for_status()
+                for line in response.iter_lines():
+                    if line:
+                        data = json.loads(line.decode('utf-8'))
+                        yield data.get("response", "")
+        except requests.exceptions.RequestException as e:
+            yield f"\n\n❌ **Ollama Connection error:** {str(e)}"
+        except Exception as e:
+            yield f"\n\n❌ **Ollama Conversion error:** {str(e)}"

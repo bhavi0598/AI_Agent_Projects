@@ -14,12 +14,12 @@ if ENV_FILE.exists():
                 key, val = line.split('=', 1)
                 env_vars[key] = val
 
-OLLAMA_BASE_URL = env_vars.get('OLLAMA_BASE_URL', 'http://localhost:11434')
-DEFAULT_MODEL = env_vars.get('DEFAULT_MODEL', 'qwen3:4b')
+OLLAMA_BASE_URL_ENV = env_vars.get('OLLAMA_BASE_URL', 'http://localhost:11434')
 
-def check_ollama():
+def check_ollama(base_url=None):
+    target_url = base_url if base_url else OLLAMA_BASE_URL_ENV
     try:
-        response = requests.get(f"{OLLAMA_BASE_URL}/api/tags", timeout=5)
+        response = requests.get(f"{target_url}/api/tags", timeout=5)
         if response.status_code == 200:
             data = response.json()
             models = [m['name'] for m in data.get('models', [])]
@@ -28,14 +28,15 @@ def check_ollama():
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
-def ping_model(model_name):
+def ping_model(model_name, base_url=None):
+    target_url = base_url if base_url else OLLAMA_BASE_URL_ENV
     try:
         payload = {
             "model": model_name,
             "prompt": "Say 'Handshake successful' and nothing else.",
             "stream": False
         }
-        response = requests.post(f"{OLLAMA_BASE_URL}/api/generate", json=payload, timeout=20)
+        response = requests.post(f"{target_url}/api/generate", json=payload, timeout=20)
         if response.status_code == 200:
             data = response.json()
             return {"status": "success", "response": data.get('response', '').strip()}
@@ -44,22 +45,5 @@ def ping_model(model_name):
         return {"status": "error", "message": str(e)}
 
 if __name__ == "__main__":
-    print(f"--- B.L.A.S.T Handshake Initiated ---")
-    print(f"Checking Ollama at {OLLAMA_BASE_URL}...")
-    
     health = check_ollama()
-    if health['status'] == 'success':
-        print(f"[OK] Ollama is RUNNING.")
-        print(f"[OK] Available local models: {', '.join(health['models'])}")
-        
-        if DEFAULT_MODEL in health['models']:
-            print(f"Checking {DEFAULT_MODEL} inference...")
-            ping_res = ping_model(DEFAULT_MODEL)
-            if ping_res['status'] == 'success':
-                print(f"[OK] Inference {DEFAULT_MODEL} successful: {ping_res['response']}")
-            else:
-                print(f"[ERROR] Inference failed: {ping_res['message']}")
-        else:
-            print(f"[ERROR] Target model {DEFAULT_MODEL} not found in Ollama!")
-    else:
-        print(f"[ERROR] Ollama connection failed: {health['message']}")
+    print(health)
