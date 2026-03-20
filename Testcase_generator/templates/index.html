@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Testcase Generator</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- Background Elements -->
+        <div class="ambient-light"></div>
+
+        <header class="glass-header">
+            <div class="logo" id="headerTitle">✦ AI Assistant</div>
+            <div class="controls">
+                <select id="modeSelect" class="mode-select">
+                    <option value="" disabled selected>Select a mode</option>
+                    <option value="testcase">🛠️ Test Case Gen</option>
+                    <option value="math">🧮 Math Helper</option>
+                    <option value="chat">💬 Friendly Chat</option>
+                </select>
+            </div>
+        </header>
+
+        <main class="chat-container" id="chatContainer">
+            <div class="welcome-message">
+                <h1>How can I help you?</h1>
+                <p>Select a mode from the top right to get started.</p>
+            </div>
+            <!-- Messages will be injected here -->
+        </main>
+
+        <footer class="input-area">
+            <div class="glass-input-wrapper">
+                <textarea id="userInput" placeholder="Write a prompt..." rows="1"></textarea>
+                <button id="sendBtn" class="send-btn">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M22 2L11 13" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                            stroke-linejoin="round" />
+                        <path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                </button>
+            </div>
+        </footer>
+    </div>
+    <script src="/static/script.js"></script>
+</body>
+
+</html>

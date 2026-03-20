@@ -1,0 +1,91 @@
+{
+    "Hyderabad": [
+        "Charminar",
+        "Golconda Fort",
+        "Hussain Sagar",
+        "Ramoji Film City"
+    ],
+    "Warangal": [
+        "Warangal Fort",
+        "Thousand Pillar Temple",
+        "Bhadrakali Temple"
+    ],
+    "Chennai": [
+        "Marina Beach",
+        "Kapaleeshwarar Temple",
+        "Fort St. George",
+        "San Thome Basilica"
+    ],
+    "Madurai": [
+        "Meenakshi Amman Temple",
+        "Thirumalai Nayakkar Palace",
+        "Gandhi Memorial Museum"
+    ],
+    "Bengaluru": [
+        "Cubbon Park",
+        "Lalbagh Botanical Garden",
+        "Bangalore Palace",
+        "ISKCON Temple"
+    ],
+    "Mysuru": [
+        "Mysore Palace",
+        "Chamundi Hills",
+        "Brindavan Gardens"
+    ],
+    "Jaipur": [
+        "Hawa Mahal",
+        "City Palace",
+        "Amber Fort",
+        "Jantar Mantar",
+        "Nahargarh Fort"
+    ],
+    "Udaipur": [
+        "City Palace",
+        "Lake Pichola",
+        "Jag Mandir",
+        "Fateh Sagar Lake"
+    ],
+    "Jodhpur": [
+        "Mehrangarh Fort",
+        "Jaswant Thada",
+        "Umaid Bhawan Palace"
+    ],
+    "Jaisalmer": [
+        "Jaisalmer Fort",
+        "Sam Sand Dunes",
+        "Patwon Ki Haveli"
+    ],
+    "Kochi": [
+        "Fort Kochi",
+        "Chinese Fishing Nets",
+        "Mattancherry Palace"
+    ],
+    "Munnar": [
+        "Tea Gardens",
+        "Eravikulam National Park",
+        "Mattupetty Dam"
+    ],
+    "Mumbai": [
+        "Gateway of India",
+        "Marine Drive",
+        "Elephanta Caves",
+        "Juhu Beach"
+    ],
+    "Pune": [
+        "Shaniwar Wada",
+        "Aga Khan Palace",
+        "Sinhagad Fort"
+    ],
+    "Goa": [
+        "Baga Beach",
+        "Calangute Beach",
+        "Fort Aguada",
+        "Dudhsagar Falls"
+    ],
+    "New Delhi": [
+        "India Gate",
+        "Qutub Minar",
+        "Red Fort",
+        "Lotus Temple"
+    ]
+}

@@ -1,0 +1,34 @@
+{
+    "Telangana": [
+        "Hyderabad",
+        "Warangal"
+    ],
+    "Tamil Nadu": [
+        "Chennai",
+        "Madurai"
+    ],
+    "Karnataka": [
+        "Bengaluru",
+        "Mysuru"
+    ],
+    "Rajasthan": [
+        "Jaipur",
+        "Udaipur",
+        "Jodhpur",
+        "Jaisalmer"
+    ],
+    "Kerala": [
+        "Kochi",
+        "Munnar"
+    ],
+    "Maharashtra": [
+        "Mumbai",
+        "Pune"
+    ],
+    "Goa": [
+        "Goa"
+    ],
+    "Delhi (UT)": [
+        "New Delhi"
+    ]
+}

@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Personalized AI Travel Planner</title>
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Tailwind CSS for rapid styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8f9fa;
+        }
+
+        .chat-bubble {
+            max-width: 80%;
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 10px;
+            position: relative;
+        }
+
+        .chat-bubble.user {
+            background-color: #e3f2fd;
+            margin-left: auto;
+            text-align: right;
+        }
+
+        .chat-bubble.assistant {
+            background-color: #ffffff;
+            border: 1px solid #e0e0e0;
+            margin-right: auto;
+        }
+
+        .avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+
+        /* Markdown-like styling */
+        .markdown p {
+            margin-bottom: 0.5em;
+        }
+
+        .markdown strong {
+            font-weight: 600;
+        }
+
+        .markdown ul {
+            list-style-type: disc;
+            margin-left: 1.5em;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        function App() {
+            // State
+            const [statesCities, setStatesCities] = useState({});
+            const [srcState, setSrcState] = useState("");
+            const [srcCity, setSrcCity] = useState("");
+            const [dstState, setDstState] = useState("");
+            const [dstCity, setDstCity] = useState("");
+            const [days, setDays] = useState(4);
+
+            const [messages, setMessages] = useState([]);
+            const [input, setInput] = useState("");
+            const [isThinking, setIsThinking] = useState(false);
+            const messagesEndRef = useRef(null);
+
+            // Fetch Cities Data on Mount
+            useEffect(() => {
+                fetch("/api/data")
+                    .then(res => res.json())
+                    .then(data => {
+                        setStatesCities(data);
+                        // Defaults
+                        const states = Object.keys(data);
+                        if (states.length > 0) {
+                            setSrcState(states[0]);
+                            setDstState(states[1] || states[0]);
+                        }
+                    });
+            }, []);
+
+            // Auto-select cities when state changes
+            useEffect(() => {
+                if (srcState && statesCities[srcState]) setSrcCity(statesCities[srcState][0]);
+            }, [srcState, statesCities]);
+            useEffect(() => {
+                if (dstState && statesCities[dstState]) setDstCity(statesCities[dstState][0]);
+            }, [dstState, statesCities]);
+
+            // Scroll to bottom
+            const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+            useEffect(scrollToBottom, [messages]);
+
+            // Handlers
+            const handleGenerate = async () => {
+                setIsThinking(true);
+                // 1. Show persistent 'Generating...' status
+                const loadingMsg = { role: "assistant", content: "🔄 *Generating itinerary...*" };
+                setMessages(prev => [...prev, loadingMsg]);
+
+                try {
+                    const response = await fetch("/api/generate", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ dst_city: dstCity, days: days })
+                    });
+
+                    const reader = response.body.getReader();
+                    const decoder = new TextDecoder();
+                    let fullText = "";
+                    let isFirstChunk = true;
+
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+                        const chunk = decoder.decode(value);
+                        fullText += chunk;
+
+                        // On first chunk, replace the "Generating..." placeholder with actual text
+                        if (isFirstChunk) {
+                            // If the chunk already contains the status from backend, just use it
+                            // otherwise, we might want to keep the header.
+                            // The backend sends "Generating..." as first chunk too, so let's just 
+                            // update the last message content to be fullText (which includes backend's status)
+                            isFirstChunk = false;
+                        }
+
+                        setMessages(prev => {
+                            const newMsgs = [...prev];
+                            newMsgs[newMsgs.length - 1] = { role: "assistant", content: fullText };
+                            return newMsgs;
+                        });
+                    }
+                } catch (err) {
+                    console.error(err);
+                    setMessages(prev => {
+                        const newMsgs = [...prev];
+                        newMsgs[newMsgs.length - 1] = { role: "assistant", content: "Error generating plan." };
+                        return newMsgs;
+                    });
+                } finally {
+                    setIsThinking(false);
+                }
+            };
+
+            const handleSend = async () => {
+                if (!input.trim()) return;
+                const userMsg = input;
+                setInput("");
+                setMessages(prev => [...prev, { role: "user", content: userMsg }]);
+                setIsThinking(true);
+
+                // Add assistant placeholder "Thinking..."
+                const loadingMsg = { role: "assistant", content: "🤔 *Thinking...*" };
+                setMessages(prev => [...prev, loadingMsg]);
+
+                try {
+                    const response = await fetch("/api/chat", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ message: userMsg })
+                    });
+
+                    const reader = response.body.getReader();
+                    const decoder = new TextDecoder();
+                    let fullText = "";
+                    let isFirstChunk = true;
+
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+                        const chunk = decoder.decode(value);
+
+                        // Replace 'Thinking...' with actual text on first chunk
+                        if (isFirstChunk) {
+                            fullText = ""; // Clear "Thinking..." if we want, or prepend it. 
+                            // User request: "display thinking... and live streaming"
+                            // If we replace it, it looks cleaner.
+                            // But usually streaming means append. 
+                            // Let's replace "Thinking..." with the new text immediately.
+                            isFirstChunk = false;
+                        }
+
+                        fullText += chunk;
+
+                        setMessages(prev => {
+                            const newMsgs = [...prev];
+                            newMsgs[newMsgs.length - 1] = { role: "assistant", content: fullText };
+                            return newMsgs;
+                        });
+                    }
+                } catch (err) {
+                    setMessages(prev => {
+                        const newMsgs = [...prev];
+                        newMsgs[newMsgs.length - 1] = { role: "assistant", content: "Error: " + err.message };
+                        return newMsgs;
+                    });
+                } finally {
+                    setIsThinking(false);
+                }
+            };
+
+            const handleExport = async () => {
+                const res = await fetch("/api/export");
+                const blob = await res.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = "travel_plan.pdf";
+                a.click();
+            };
+
+            const handleReset = async () => {
+                await fetch("/api/reset", { method: "POST" });
+                setMessages([]);
+                window.location.reload();
+            };
+
+            // Helpers for rendering markdown (simple replace for newlines)
+            const renderContent = (text) => {
+                return text.split('\n').map((str, i) => <p key={i}>{str}</p>);
+            };
+
+            return (
+                <div className="container mx-auto p-4 max-w-6xl">
+                    <h1 className="text-2xl font-bold text-gray-800 mb-6 text-center">Personalized AI Travel Planner</h1>
+
+                    {/* Header Controls */}
+                    <div className="bg-white p-4 rounded-lg shadow-sm mb-6 flex flex-wrap gap-4 items-end">
+                        <div className="flex-1 min-w-[200px]">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">From State</label>
+                            <select className="w-full border border-gray-300 rounded-md p-2" value={srcState} onChange={e => setSrcState(e.target.value)}>
+                                {Object.keys(statesCities).map(s => <option key={s} value={s}>{s}</option>)}
+                            </select>
+                        </div>
+                        <div className="flex-1 min-w-[200px]">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">From City</label>
+                            <select className="w-full border border-gray-300 rounded-md p-2" value={srcCity} onChange={e => setSrcCity(e.target.value)}>
+                                {(statesCities[srcState] || []).map(c => <option key={c} value={c}>{c}</option>)}
+                            </select>
+                        </div>
+                        <div className="flex-1 min-w-[200px]">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">To State</label>
+                            <select className="w-full border border-gray-300 rounded-md p-2" value={dstState} onChange={e => setDstState(e.target.value)}>
+                                {Object.keys(statesCities).map(s => <option key={s} value={s}>{s}</option>)}
+                            </select>
+                        </div>
+                        <div className="flex-1 min-w-[200px]">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">To City</label>
+                            <select className="w-full border border-gray-300 rounded-md p-2" value={dstCity} onChange={e => setDstCity(e.target.value)}>
+                                {(statesCities[dstState] || []).map(c => <option key={c} value={c}>{c}</option>)}
+                            </select>
+                        </div>
+                        <div className="w-24">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Days</label>
+                            <input type="number" className="w-full border border-gray-300 rounded-md p-2" value={days} onChange={e => setDays(Number(e.target.value))} min="1" max="15" />
+                        </div>
+                        <div className="w-40">
+                            <button onClick={handleGenerate} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md transition duration-200">
+                                Generate Plan
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        {/* Chat Section */}
+                        <div className="md:col-span-2 flex flex-col h-[600px] bg-white rounded-lg shadow-sm border border-gray-200">
+                            <div className="p-4 border-b border-gray-100 font-semibold text-gray-700 flex items-center">
+                                <span className="mr-2">👩‍💻</span> Travel Assistant
+                            </div>
+
+                            <div className="flex-1 overflow-y-auto p-4 bg-gray-50">
+                                {messages.length === 0 && <div className="text-gray-400 text-center mt-10">Start by generating a plan or saying hello!</div>}
+                                {messages.map((msg, idx) => (
+                                    <div key={idx} className={`chat-bubble ${msg.role} flex items-start gap-2`}>
+                                        <div className="avatar flex-shrink-0 bg-gray-200 flex items-center justify-center">
+                                            {msg.role === 'user' ? '🧑' : '👩‍💻'}
+                                        </div>
+                                        <div className="markdown text-sm">
+                                            {renderContent(msg.content)}
+                                        </div>
+                                    </div>
+                                ))}
+                                <div ref={messagesEndRef} />
+                            </div>
+
+                            <div className="p-4 border-t border-gray-100 bg-white">
+                                <div className="flex gap-2">
+                                    <button onClick={handleExport} className="border border-gray-300 px-3 py-2 rounded text-sm hover:bg-gray-50 flex items-center gap-1">
+                                        📄 Export PDF
+                                    </button>
+                                    <button onClick={handleReset} className="border border-gray-300 px-3 py-2 rounded text-sm hover:bg-gray-50 text-red-500 border-red-200">
+                                        🔄 Reset
+                                    </button>
+                                </div>
+                                <div className="mt-3 flex gap-2">
+                                    <input
+                                        type="text"
+                                        className="flex-1 border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        placeholder="Type your message..."
+                                        value={input}
+                                        onChange={e => setInput(e.target.value)}
+                                        onKeyPress={e => e.key === 'Enter' && handleSend()}
+                                    />
+                                    <button onClick={handleSend} className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-md font-semibold transition">
+                                        Send
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Quick Actions Sidebar */}
+                        <div className="space-y-4">
+                            <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                                <h3 className="font-semibold text-gray-700 mb-4">Quick Actions</h3>
+                                <div className="space-y-3">
+                                    <button onClick={() => { setInput("I'd like to modify this plan."); handleSend(); }} className="w-full text-left px-4 py-3 border border-gray-200 rounded-md hover:bg-gray-50 transition">
+                                        ✏️ Modify Plan
+                                    </button>
+                                    <button onClick={() => { setInput("What are the best transport options?"); handleSend(); }} className="w-full text-left px-4 py-3 border border-gray-200 rounded-md hover:bg-gray-50 transition">
+                                        🚌 Transport Options
+                                    </button>
+                                    <button onClick={() => { setInput("Can you suggest some good hotels?"); handleSend(); }} className="w-full text-left px-4 py-3 border border-gray-200 rounded-md hover:bg-gray-50 transition">
+                                        🏨 Hotel Suggestions
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+
+</html>
